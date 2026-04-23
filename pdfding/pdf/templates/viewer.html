@@ -135,6 +135,13 @@ See https://github.com/adobe-type-tools/cmap-resources
       {# check every 5 seconds if remote signatures need updating #}
       setInterval(update_remote_signatures, 5000, '{% url 'signatures' %}', '{{ csrf_token }}');
 
+      {# wire up debounced autosave for annotation edits #}
+      document.addEventListener("webviewerloaded", () => {
+        PDFViewerApplication.initializedPromise.then(() => {
+          init_autosave('{{ pdf_id }}', '{% url 'update_pdf' %}', '{{ csrf_token }}', '{{ tab_title }}');
+        });
+      });
+
       {% if keep_screen_awake == 'Enabled' %}
       requestWakeLock();
       {% endif %}
@@ -468,6 +475,7 @@ See https://github.com/adobe-type-tools/cmap-resources
                       <path opacity="0.6" d="M7 15C7 13.8954 7.89543 13 9 13H15C16.1046 13 17 13.8954 17 15V20H7V15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                   </button>
+                  <span id="autosaveStatus" class="autosave-status" aria-live="polite"></span>
                   {% endif %}
                 </div>
                 {% if user_view_bool %}

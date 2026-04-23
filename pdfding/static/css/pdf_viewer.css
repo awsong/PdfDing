@@ -220,3 +220,25 @@ dialog {
   filter: grayscale(100%);
   filter: invert(80%);
 }
+
+/* Autosave status indicator */
+.autosave-status {
+  display: inline-block;
+  margin: 0 6px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  color: var(--textcolor);
+  transition: opacity 0.25s ease-in-out;
+  white-space: nowrap;
+  align-self: center;
+}
+.autosave-status.saving,
+.autosave-status.saved,
+.autosave-status.error {
+  opacity: 0.85;
+}
+.autosave-status.error {
+  color: rgb(220 38 38);
+  opacity: 1;
+}
