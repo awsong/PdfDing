@@ -242,3 +242,88 @@ dialog {
   color: rgb(220 38 38);
   opacity: 1;
 }
+
+/* Shared (admin) PDF: DB-backed point comments overlay */
+#viewer .page {
+  position: relative;
+}
+.shared-comment-pin {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -22px;
+  cursor: pointer;
+  color: rgb(234 88 12);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+  z-index: 50;
+}
+.shared-comment-pin:hover {
+  color: rgb(249 115 22);
+}
+.shared-comment-popover {
+  position: absolute;
+  left: 14px;
+  top: -4px;
+  width: 240px;
+  background: white;
+  color: black;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  z-index: 60;
+  font-size: 13px;
+}
+.shared-comment-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  min-height: 40px;
+  padding: 4px 2px;
+  color: rgb(30 41 59);
+}
+.shared-comment-body-empty {
+  color: rgb(148 163 184);
+  font-style: italic;
+}
+.shared-comment-popover textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 4px;
+}
+.shared-comment-header {
+  font-weight: 600;
+  font-size: 12px;
+  color: rgb(71 85 105);
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+.shared-comment-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.shared-comment-footer button {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 4px;
+  background: rgb(241 245 249);
+  cursor: pointer;
+}
+.shared-comment-footer button.shared-comment-delete {
+  color: rgb(220 38 38);
+}
+body.shared-comment-placing #viewer .page {
+  cursor: crosshair;
+}
+#sharedCommentToggle.active {
+  background: rgba(234, 88, 12, 0.25);
+}

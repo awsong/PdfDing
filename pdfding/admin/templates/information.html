@@ -26,6 +26,13 @@
                     <span class="text-3xl">{{ current_version }}</span>
                 </div>
             </div>
+            <div class="pt-8">
+                <a href="{% url 'export_shared_annotations' %}"
+                   class="inline-block px-4 py-2 rounded-sm border font-semibold
+                          bg-primary text-white hover:opacity-90">
+                    {% trans 'Export shared annotations (XLSX)' %}
+                </a>
+            </div>
         </div>
     </div>
 </div>

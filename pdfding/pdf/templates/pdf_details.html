@@ -69,6 +69,7 @@
                                 </div>
                                 {% endif %}
                             </div>
+                            {% if not pdf.is_shared_master or request.user.is_superuser %}
                             <div class="pr-0 md:pr-4">
                                 <a id="name-edit" class="cursor-pointer text-primary hover:text-secondary"
                                     hx-get="{% url 'edit_pdf' identifier=pdf.id field_name='name' %}"
@@ -77,8 +78,10 @@
                                     {{ edit }}
                                 </a>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
+                    {% if not pdf.is_shared_master or request.user.is_superuser %}
                     <div class="flex flex-row items-center text-md font-bold! [&>a]:text-primary [&>a]:hover:text-secondary [&>a]:cursor-pointer -mt-1!">
                       <a href="{% url 'share_pdf' pdf.id %}">{% trans 'Share' %}</a>
                         <svg class="w-5! h-5!" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -110,6 +113,12 @@
                            {% endif %}
                         </a>
                     </div>
+                    {% else %}
+                    <div class="flex flex-row items-center text-md font-bold! [&>a]:text-primary [&>a]:hover:text-secondary [&>a]:cursor-pointer -mt-1!">
+                        <a href="{% url 'download_pdf' pdf.id %}">{% trans 'Download' %}</a>
+                        <span class="ml-3 text-xs! font-semibold! px-2 py-0.5 rounded-sm bg-primary text-white">{% trans 'Shared (read-only)' %}</span>
+                    </div>
+                    {% endif %}
                     <div class="pt-2">
                       <span class="text-lg font-bold">{% trans 'Collection' %}</span>
                     </div>
@@ -119,6 +128,7 @@
                                 {{ pdf.collection.name }}
                             </span>
                         </div>
+                        {% if not pdf.is_shared_master or request.user.is_superuser %}
                         <div class="pr-0 md:pr-4">
                             <a id="collection-edit" class="cursor-pointer text-primary hover:text-secondary"
                                 hx-get="{% url 'edit_pdf' identifier=pdf.id field_name='collection' %}"
@@ -127,6 +137,7 @@
                                 {{ edit }}
                             </a>
                         </div>
+                        {% endif %}
                     </div>
                     <div class="pt-4">
                       <span class="text-lg font-bold">{% trans 'Tags' %}</span>
@@ -149,6 +160,7 @@
                             {% endif %}
                             </span>
                         </div>
+                        {% if not pdf.is_shared_master or request.user.is_superuser %}
                         <div class="pr-0 md:pr-4">
                             <a id="tags-edit" class="cursor-pointer text-primary hover:text-secondary"
                                 hx-get="{% url 'edit_pdf' identifier=pdf.id field_name='tags' %}"
@@ -157,6 +169,7 @@
                                 {{ edit }}
                             </a>
                         </div>
+                        {% endif %}
                     </div>
                     <div class="pt-2">
                       <span class="text-lg font-bold">{% trans 'Description' %}</span>
@@ -171,6 +184,7 @@
                                 {% endif %}
                             </span>
                         </div>
+                        {% if not pdf.is_shared_master or request.user.is_superuser %}
                         <div class="pr-0 md:pr-4">
                             <a id="description-edit" class="cursor-pointer text-primary hover:text-secondary"
                                 hx-get="{% url 'edit_pdf' identifier=pdf.id field_name='description' %}"
@@ -179,6 +193,7 @@
                                 {{ edit }}
                             </a>
                         </div>
+                        {% endif %}
                     </div>
                     <div class="pt-2">
                       <span class="text-lg font-bold">{% trans 'Notes' %}</span>
@@ -196,6 +211,7 @@
                             </span>
                             {% endif %}
                         </div>
+                        {% if not pdf.is_shared_master or request.user.is_superuser %}
                         <div class="pr-0 md:pr-4">
                             <a id="notes-edit" class="cursor-pointer text-primary hover:text-secondary"
                                 hx-get="{% url 'edit_pdf' identifier=pdf.id field_name='notes' %}"
@@ -204,6 +220,7 @@
                                 {{ edit }}
                             </a>
                         </div>
+                        {% endif %}
                     </div>
                     {% if ALLOW_PDF_SUB_DIRECTORIES %}
                     <div class="pt-2">
@@ -219,6 +236,7 @@
                                 {% endif %}
                             </span>
                         </div>
+                        {% if not pdf.is_shared_master or request.user.is_superuser %}
                         <div class="pr-0 md:pr-4">
                             <a id="file_directory-edit" class="cursor-pointer text-primary hover:text-secondary"
                                 hx-get="{% url 'edit_pdf' identifier=pdf.id field_name='file_directory' %}"
@@ -227,6 +245,7 @@
                                 {{ edit }}
                             </a>
                         </div>
+                        {% endif %}
                     </div>
                     {% endif %}
                     {% if pdf.number_of_pages > 0 %}
@@ -257,6 +276,7 @@
                     </div>
                 </div>
             </div>
+            {% if not pdf.is_shared_master or request.user.is_superuser %}
             <div class="flex justify-end pt-4">
                 <div x-data="{ delete_pdf: false }"
                      class="pr-4 [&>a]:font-bold [&>a]:cursor-pointer
@@ -273,6 +293,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>

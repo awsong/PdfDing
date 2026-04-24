@@ -8,4 +8,9 @@ urlpatterns = [
     path('get_next_overview_page/<int:page>/', views.Overview.as_view(), name='get_next_user_overview_page'),
     path('rights/<identifier>', views.AdjustAdminRights.as_view(), name='admin_adjust_rights'),
     path('delete/<identifier>', views.DeleteProfile.as_view(), name='admin_delete_profile'),
+    path(
+        'shared_annotations/export',
+        views.ExportSharedAnnotations.as_view(),
+        name='export_shared_annotations',
+    ),
 ]

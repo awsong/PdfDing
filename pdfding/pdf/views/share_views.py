@@ -80,6 +80,10 @@ class AddSharedPdfMixin(BaseShareMixin):
         shared_pdf = form.save(commit=False)
         shared_pdf.pdf = PdfMixin.get_object(request, identifier)
 
+        # non-admin users cannot create public shares from admin-shared (read-only) PDFs
+        if shared_pdf.pdf.is_shared_master and not request.user.is_superuser:
+            raise Http404('Given query not found...')
+
         cls.add_qr_code(shared_pdf, request)
         cls.set_access_dates(shared_pdf, form.data.get('expiration_input'), form.data.get('deletion_input'))
 

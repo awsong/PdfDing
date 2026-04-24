@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from base import base_views
@@ -8,14 +9,14 @@ from django.contrib.auth.decorators import login_not_required
 from django.db.models import Q, QuerySet
 from django.db.models.functions import Lower
 from django.forms import ValidationError
-from django.http import FileResponse, HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 from pdf import forms
 from pdf.models.collection_models import Collection
-from pdf.models.pdf_models import Pdf, PdfComment, PdfHighlight
+from pdf.models.pdf_models import Pdf, PdfComment, PdfHighlight, SharedPdfComment
 from pdf.models.tag_models import Tag
 from pdf.services import pdf_services
 from pdf.services.collection_services import adjust_pdf_path
@@ -66,7 +67,7 @@ class AddPdfMixin(BasePdfMixin):
         if form.data.get('use_file_name'):
             name = pdf_services.create_unique_name_from_file(pdf_file, collection.workspace)
 
-        PdfProcessingServices.create_pdf(
+        pdf = PdfProcessingServices.create_pdf(
             name=name,
             collection=collection,
             pdf_file=pdf_file,
@@ -75,6 +76,10 @@ class AddPdfMixin(BasePdfMixin):
             tag_string=tag_string,
             file_directory=file_directory,
         )
+
+        if request.user.is_superuser and form.data.get('share_with_all') and pdf is not None:
+            pdf.is_shared_master = True
+            pdf.save(update_fields=['is_shared_master'])
 
 
 class BulkAddPdfMixin(BasePdfMixin):
@@ -115,6 +120,8 @@ class BulkAddPdfMixin(BasePdfMixin):
         else:
             files = form.files.getlist('file')
 
+        share_with_all = bool(request.user.is_superuser and form.data.get('share_with_all'))
+
         for file in files:
             # add file unless skipping existing is set and a PDF with the same name and file size already exists
             if not (
@@ -123,7 +130,7 @@ class BulkAddPdfMixin(BasePdfMixin):
             ):
                 pdf_name = pdf_services.create_unique_name_from_file(file, workspace)
 
-                PdfProcessingServices.create_pdf(
+                pdf = PdfProcessingServices.create_pdf(
                     name=pdf_name,
                     collection=collection,
                     pdf_file=file,
@@ -132,6 +139,10 @@ class BulkAddPdfMixin(BasePdfMixin):
                     file_directory=file_directory,
                     tag_string=tag_string,
                 )
+
+                if share_with_all and pdf is not None:
+                    pdf.is_shared_master = True
+                    pdf.save(update_fields=['is_shared_master'])
 
 
 class OverviewMixin(BasePdfMixin):
@@ -229,6 +240,30 @@ class OverviewMixin(BasePdfMixin):
         }
 
         return extra_context
+
+
+def is_readonly_shared(pdf: Pdf, user) -> bool:
+    """Whether the given PDF is an admin-shared file that the given user is not allowed to modify."""
+
+    return bool(pdf.is_shared_master and not user.is_superuser)
+
+
+class SharedReadonlyGuardMixin:
+    """Mixin that blocks any non-admin write/modify action on an admin-shared PDF."""
+
+    def dispatch(self, request: HttpRequest, *args, **kwargs):
+        identifier = kwargs.get('identifier') or request.POST.get('pdf_id')
+        if identifier and request.method not in ('GET', 'HEAD', 'OPTIONS'):
+            try:
+                pdf = request.user.profile.all_pdfs.get(id=identifier)
+            except (Pdf.DoesNotExist, ValidationError):
+                pdf = None
+            if pdf is not None and is_readonly_shared(pdf, request.user):
+                if request.htmx:
+                    return HttpResponse(status=403)
+                messages.warning(request, _('Shared PDFs are read-only.'))
+                return redirect('pdf_overview')
+        return super().dispatch(request, *args, **kwargs)
 
 
 class PdfMixin(BasePdfMixin):
@@ -506,6 +541,8 @@ class ViewerView(PdfMixin, View):
         else:
             current_page = pdf.current_page
 
+        shared_readonly_bool = is_readonly_shared(pdf, request.user)
+
         return render(
             request,
             'viewer.html',
@@ -518,6 +555,12 @@ class ViewerView(PdfMixin, View):
                 'theme': theme,
                 'theme_color': theme_color,
                 'user_view_bool': True,
+                'shared_readonly_bool': shared_readonly_bool,
+                'pdf_editing_enabled': not shared_readonly_bool,
+                # whether to load the shared-comments overlay at all
+                'show_shared_comments_overlay': pdf.is_shared_master,
+                # admins view the overlay read-only (no add/edit/delete UI)
+                'shared_comments_can_edit': not request.user.is_superuser,
                 'keep_screen_awake': request.user.profile.pdf_keep_screen_awake,
             },
         )
@@ -557,7 +600,7 @@ class UpdatePage(PdfMixin, View):
         return HttpResponse(status=200)
 
 
-class UpdatePdf(PdfMixin, View):
+class UpdatePdf(SharedReadonlyGuardMixin, PdfMixin, View):
     """
     View for updating the PDF file. This is triggered everytime the user saves a modified PDF.
     """
@@ -629,7 +672,7 @@ class Details(PdfMixin, base_views.BaseDetails):
     """View for displaying the details page of a PDF."""
 
 
-class Edit(EditPdfMixin, base_views.BaseDetailsEdit):
+class Edit(SharedReadonlyGuardMixin, EditPdfMixin, base_views.BaseDetailsEdit):
     """
     The view for editing a PDF's name, tags and description. The field, that is to be changed, is specified by the
     'field' argument.
@@ -664,7 +707,7 @@ class DetailsCommentOverview(DetailsCommentOverviewMixin, base_views.BaseOvervie
     """
 
 
-class Delete(PdfMixin, base_views.BaseDelete):
+class Delete(SharedReadonlyGuardMixin, PdfMixin, base_views.BaseDelete):
     """View for deleting the PDF specified by its ID."""
 
     def get(self, request: HttpRequest, identifier: str):
@@ -825,7 +868,7 @@ class DeleteTag(TagMixin, View):
         return redirect(redirect_url)
 
 
-class Star(PdfMixin, View):
+class Star(SharedReadonlyGuardMixin, PdfMixin, View):
     """View for starring and unstarring pdfs."""
 
     def post(self, request: HttpRequest, identifier: str):
@@ -846,7 +889,7 @@ class Star(PdfMixin, View):
         return redirect('pdf_overview')
 
 
-class Archive(PdfMixin, View):
+class Archive(SharedReadonlyGuardMixin, PdfMixin, View):
     """View for archiving and unarchiving pdfs."""
 
     def post(self, request: HttpRequest, identifier: str):
@@ -891,3 +934,121 @@ class ExportAnnotations(View, PdfMixin):
             export_path.unlink()
 
             return response
+
+
+def _get_shared_pdf_or_404(request: HttpRequest, pdf_id: str) -> Pdf:
+    """Resolve a Pdf the user can interact with via the shared-comments API."""
+
+    try:
+        pdf = request.user.profile.all_pdfs.get(id=pdf_id)
+    except (Pdf.DoesNotExist, ValidationError):
+        raise Http404('Given query not found...')
+
+    # only admin-shared masters can carry shared comments
+    if not pdf.is_shared_master:
+        raise Http404('Given query not found...')
+
+    return pdf
+
+
+def _serialize_shared_comment(comment: SharedPdfComment, request: HttpRequest) -> dict:
+    can_edit = (comment.user_id == request.user.id) or request.user.is_superuser
+    return {
+        'id': str(comment.id),
+        'page': comment.page,
+        'x': comment.x,
+        'y': comment.y,
+        'text': comment.text,
+        'user_email': comment.user.email,
+        'user_id': comment.user_id,
+        'is_mine': comment.user_id == request.user.id,
+        'can_edit': can_edit,
+        'created_at': comment.creation_date.isoformat(),
+        'modified_at': comment.modification_date.isoformat(),
+    }
+
+
+class SharedCommentsList(View):
+    """GET list / POST create shared comments for an admin-shared PDF."""
+
+    def get(self, request: HttpRequest, pdf_id: str):
+        pdf = _get_shared_pdf_or_404(request, pdf_id)
+        comments = pdf.shared_comments.select_related('user').all()
+        return JsonResponse({'comments': [_serialize_shared_comment(c, request) for c in comments]})
+
+    def post(self, request: HttpRequest, pdf_id: str):
+        pdf = _get_shared_pdf_or_404(request, pdf_id)
+        try:
+            payload = json.loads(request.body or b'{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'invalid json'}, status=400)
+
+        try:
+            page = int(payload.get('page'))
+            x = float(payload.get('x'))
+            y = float(payload.get('y'))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'invalid coordinates'}, status=400)
+
+        if not (0.0 <= x <= 1.0) or not (0.0 <= y <= 1.0) or page < 1:
+            return JsonResponse({'error': 'out of range'}, status=400)
+
+        text = (payload.get('text') or '')[:5000]
+
+        comment = SharedPdfComment.objects.create(
+            pdf=pdf, user=request.user, page=page, x=x, y=y, text=text
+        )
+        return JsonResponse(_serialize_shared_comment(comment, request), status=201)
+
+
+class SharedCommentDetail(View):
+    """PATCH / DELETE a single shared comment."""
+
+    def _get(self, request: HttpRequest, pdf_id: str, comment_id: str) -> SharedPdfComment:
+        pdf = _get_shared_pdf_or_404(request, pdf_id)
+        try:
+            comment = pdf.shared_comments.select_related('user').get(id=comment_id)
+        except (SharedPdfComment.DoesNotExist, ValidationError):
+            raise Http404('Given query not found...')
+        if comment.user_id != request.user.id and not request.user.is_superuser:
+            return None  # type: ignore[return-value]
+        return comment
+
+    def patch(self, request: HttpRequest, pdf_id: str, comment_id: str):
+        comment = self._get(request, pdf_id, comment_id)
+        if comment is None:
+            return JsonResponse({'error': 'forbidden'}, status=403)
+        try:
+            payload = json.loads(request.body or b'{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'invalid json'}, status=400)
+
+        if 'text' in payload:
+            comment.text = (payload['text'] or '')[:5000]
+        for field in ('x', 'y'):
+            if field in payload:
+                try:
+                    val = float(payload[field])
+                except (TypeError, ValueError):
+                    return JsonResponse({'error': f'invalid {field}'}, status=400)
+                if not (0.0 <= val <= 1.0):
+                    return JsonResponse({'error': f'{field} out of range'}, status=400)
+                setattr(comment, field, val)
+        if 'page' in payload:
+            try:
+                page = int(payload['page'])
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'invalid page'}, status=400)
+            if page < 1:
+                return JsonResponse({'error': 'invalid page'}, status=400)
+            comment.page = page
+
+        comment.save()
+        return JsonResponse(_serialize_shared_comment(comment, request))
+
+    def delete(self, request: HttpRequest, pdf_id: str, comment_id: str):
+        comment = self._get(request, pdf_id, comment_id)
+        if comment is None:
+            return JsonResponse({'error': 'forbidden'}, status=403)
+        comment.delete()
+        return HttpResponse(status=204)

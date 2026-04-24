@@ -28,6 +28,12 @@ class AddFormNoFile(forms.ModelForm):
 
     use_file_name = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'form-control'}))
 
+    share_with_all = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-control'}),
+        help_text=_('Share this PDF as read-only with all other users (admin only).'),
+    )
+
     class Meta:
         model = Pdf
         widgets = {
@@ -142,6 +148,12 @@ class BulkAddFormNoFile(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('Add File Directory')}),
         help_text=_('Optional, save file in a sub directory of the pdf directory, e.g: important/pdfs'),
+    )
+
+    share_with_all = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-control'}),
+        help_text=_('Share these PDFs as read-only with all other users (admin only).'),
     )
 
     def __init__(self, *args, **kwargs):

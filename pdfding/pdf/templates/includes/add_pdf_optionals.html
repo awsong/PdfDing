@@ -27,6 +27,15 @@
     </span>
 </p>
 {% endif %}
+{% if request.user.is_superuser %}
+<p id="share_with_all" x-show="show_additional" x-cloak>
+    <label class="w-auto! mr-2 inline-block! text-gray-600 dark:text-slate-300" for="id_share_with_all">
+        {% trans 'Share with all users (read-only)' %}
+    </label>
+    <input class="w-auto!" type="checkbox" name="share_with_all" id="id_share_with_all">
+    <span class="helptext">{{ form.share_with_all.help_text|safe }}</span>
+</p>
+{% endif %}
 <button class="-pt-4"  x-show="!in_progress" type="submit" >Submit</button>
 <button class="-pt-4" x-show="in_progress" x-cloak type="button" disabled>
     <div class="flex justify-center">

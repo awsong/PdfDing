@@ -38,6 +38,17 @@ urlpatterns = [
     ),
     path('annotations/export/<kind>', pdf_views.ExportAnnotations.as_view(), name='export_annotations'),
     path('annotations/export/<kind>/<identifier>', pdf_views.ExportAnnotations.as_view(), name='export_annotations'),
+    # shared (admin) PDF comment overlay
+    path(
+        'shared-comments/<pdf_id>/',
+        pdf_views.SharedCommentsList.as_view(),
+        name='shared_comments_list',
+    ),
+    path(
+        'shared-comments/<pdf_id>/<comment_id>/',
+        pdf_views.SharedCommentDetail.as_view(),
+        name='shared_comment_detail',
+    ),
     # pdf details related views
     path('details/<identifier>', pdf_views.Details.as_view(), name='pdf_details'),
     path(

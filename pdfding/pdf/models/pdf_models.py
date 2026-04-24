@@ -5,6 +5,7 @@ from uuid import uuid4
 import markdown
 import nh3
 from core.settings import MEDIA_ROOT
+from django.contrib.auth.models import User
 from django.contrib.humanize.templatetags.humanize import naturaltime
 from django.db import models
 from django.db.models import DateTimeField
@@ -116,6 +117,7 @@ class Pdf(models.Model):
     archived = models.BooleanField(default=False)
     creation_date = models.DateTimeField(blank=False, editable=False, auto_now_add=True)
     collection = models.ForeignKey(Collection, on_delete=models.CASCADE, blank=False)
+    is_shared_master = models.BooleanField(default=False, editable=False)
     current_page = models.IntegerField(default=1)
     description = models.TextField(blank=True, help_text=_('Optional'), default='')
     file_directory = models.CharField(
@@ -247,6 +249,33 @@ class PdfComment(PdfAnnotation):
 
 class PdfHighlight(PdfAnnotation):
     """Model for the pdf highlights."""
+
+
+class SharedPdfComment(models.Model):
+    """
+    DB-backed point comments for admin-shared (read-only) PDFs.
+    Coordinates are normalized to [0, 1] of the page so they survive zoom/rotation.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    pdf = models.ForeignKey(Pdf, on_delete=models.CASCADE, blank=False, related_name='shared_comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=False)
+    page = models.IntegerField(blank=False)
+    x = models.FloatField(blank=False)
+    y = models.FloatField(blank=False)
+    text = models.TextField(blank=True, default='')
+    creation_date = models.DateTimeField(auto_now_add=True, editable=False)
+    modification_date = models.DateTimeField(auto_now=True, editable=False)
+
+    class Meta:
+        ordering = ['page', 'creation_date']
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f'{self.user_id}@{self.pdf_id}#{self.page}'
+
+    @property
+    def natural_age(self) -> str:  # pragma: no cover
+        return convert_to_natural_age(self.creation_date)
 
 
 class MarkdownHelper:  # pragma: no cover

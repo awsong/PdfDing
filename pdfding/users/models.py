@@ -141,23 +141,30 @@ class Profile(models.Model):
 
     @property
     def all_pdfs(self) -> QuerySet:
-        """Return all PDFs of all workspaces the user has access to."""
+        """Return all PDFs of all workspaces the user has access to plus any admin-shared PDFs."""
 
         collections = Collection.objects.filter(workspace__in=self.workspaces)
-        pdfs = Pdf.objects.filter(collection__in=collections)
+        own_q = models.Q(collection__in=collections)
 
-        return pdfs
+        if not self.user.is_superuser:
+            return Pdf.objects.filter(own_q | models.Q(is_shared_master=True)).distinct()
+
+        return Pdf.objects.filter(own_q)
 
     @property
     def current_pdfs(self) -> QuerySet:
-        """Return all PDFs of the current collections (all or single)."""
+        """
+        Return all PDFs of the current collections (all or single). For non-admin users, admin-shared PDFs
+        are surfaced when viewing the 'all' collection of their personal workspace.
+        """
 
         if self.current_collection_id == 'all':
-            pdfs = Pdf.objects.filter(collection__in=self.current_workspace.collections)
+            own_q = models.Q(collection__in=self.current_workspace.collections)
+            if not self.user.is_superuser:
+                return Pdf.objects.filter(own_q | models.Q(is_shared_master=True)).distinct()
+            return Pdf.objects.filter(own_q)
         else:
-            pdfs = Pdf.objects.filter(collection_id=self.current_collection_id)
-
-        return pdfs
+            return Pdf.objects.filter(collection_id=self.current_collection_id)
 
     @property
     def all_shared_pdfs(self) -> QuerySet:
